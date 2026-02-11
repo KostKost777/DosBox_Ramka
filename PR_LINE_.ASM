@@ -5,7 +5,8 @@ org 100h
 OUTPUT_OFFSET   equ 160 * 5
 VRAM_OFFSET	equ 0b800h
 
-Start:		mov bx, VRAM_OFFSET
+Start:
+		mov bx, VRAM_OFFSET
 		mov es, bx
 		
 		mov ax, 7003h
