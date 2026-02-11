@@ -2,17 +2,21 @@
 .code
 org 100h
 
-SYM_OFFSET	equ 160 * 5 + 80
+CENTRE_OFFSET	equ 160 * 7 + 80
+SYM_CODE        equ 08200h + 15h
+VRAM_OFFSET	equ 0b800h
+NUM_OF_SYM	equ 10
 
 Start:
-		mov ax, 0b800h
+		mov ax, VRAM_OFFSET
 		mov es, ax
-		xor bx, bx
+		xor bx, bx	
 
-		mov byte ptr es:[bx + SYM_OFFSET], 03h
-		mov byte ptr es:[bx + SYM_OFFSET + 1], 70h 
-		mov byte ptr es:[bx + SYM_OFFSET + 160], 03h
-		mov byte ptr es:[bx + SYM_OFFSET + 160 + 1], 70h 
+		mov cx, NUM_OF_SYM
+Print_sym:		
+		mov word ptr es:[bx + CENTRE_OFFSET], SYM_CODE
+		add bx, 160  
+		loop Print_sym
 
 		mov ax, 4c00h
 		int 21h
