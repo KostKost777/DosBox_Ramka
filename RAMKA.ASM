@@ -2,7 +2,7 @@
 .code
 org 100h
 
-CENTRE_OFFSET	equ 160 * 15 + 80
+CENTRE_OFFSET	equ 160 * 5 + 80
 VRAM_OFFSET	equ 0b800h
 CMD_STR_PTR	equ 82h
 CMD_STRLEN_PTR	equ 80h
@@ -15,19 +15,18 @@ Start:
 
 		mov di, CENTRE_OFFSET
 		mov cl, ds:[CMD_STRLEN_PTR]
-		dec cl					;skip first probel							
+		dec cl					;skip first probel
 
-		mov dl, cl				;centriryu
-		and dl, 0feh			;sdelat chetnim
-		sub di, dx 
-		mov dx, di
-
-		sub dx, 12					;risuem ramku
-		sub dx, 160 * 6
+		xor dx, dx
+		mov dl, cl  
+		and dl, 0feh  
+		shl dx, 1		    
+		sub di, dx     
+		
 		mov ax, 0c03h
-		mov di, dx
-
-		mov bx, 13
+		sub di, 160 * 3 + 2 * 6
+		mov dx, di
+		mov bx, 7
 
 print_ramka:	
 	        mov cl, ds:[CMD_STRLEN_PTR]
@@ -39,7 +38,8 @@ print_ramka:
 		dec bx
 		cmp bx, 0
 		jne print_ramka
-		
+
+
 		xor di, di
 		mov di, CENTRE_OFFSET
 		mov cl, ds:[CMD_STRLEN_PTR]
@@ -47,6 +47,7 @@ print_ramka:
 		xor dx, dx
 		mov dl, cl				;centriryu
 		and dl, 0feh			;sdelat chetnim
+		shl dx, 1
 		sub di, dx 
 		mov dx, di
 		mov ah, 4eh
@@ -54,8 +55,9 @@ print_ramka:
 print_string:
 		lodsb 
 		stosw
-		loop print_string				
-
+		loop print_string	
+		
+		
 		mov ax, 4c00h
 		int 21h
 
