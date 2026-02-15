@@ -3,33 +3,36 @@
 org 100h
 
 centre_offset	equ 160 * 7 + 80
-video_seg		equ 0b800h
-str_ptr			equ 82h
-str_len_ptr		equ 80h
+video_seg       equ 0b800h
+str_ptr		equ 85h
+first_sym_addr  equ 82h
+second_sym_addr equ 83h
+str_len_ptr	equ 80h
 ramka_length    equ 20
 ramka_width     equ 4
 one_line_len    equ 160
+num_of_vars     equ 4
 
-first_sym       = 0e23h         ; #
-second_sym      = 0e21h         ; !
-left_up         = 0ec9h         ; ╔             символы рамки          -->
-hor_line        = 0ecdh         ; ═
-right_up        = 0ebbh         ; ╗
-ver_line        = 0ebah         ; ║
-right_down      = 0ebch         ; ╝
-left_down       = 0ec8h         ; ╚             символы рамки          <--
-color           = 7ch           ; цвет
+first_sym_color  = 8ah           
+second_sym_color = 0ch           
+left_up          = 0ec9h         ; ╔            
+hor_line         = 0ecdh         ; ═
+right_up         = 0ebbh         ; ╗
+ver_line         = 0ebah         ; ║
+right_down       = 0ebch         ; ╝
+left_down        = 0ec8h         ; ╚     
+text_color            = 09h           ; цвет
 
 Start:
-		mov ax, video_seg       
-		mov es, ax	
-		
-		xor ax, ax
-		mov si, str_ptr                                 ; сохраняем в si начало строки
+        mov ax, video_seg       
+        mov es, ax	
+        
+        xor ax, ax
+        mov si, str_ptr                                 ; сохраняем в si начало строки
 
         call Get_size_of_word
 
-		call Get_word_begin_offset
+        call Get_word_begin_offset
 
         call Print_boarder
 
@@ -39,9 +42,12 @@ Start:
 
         push ramka_width * 2 + 1
 
-        mov ax, first_sym
+        mov ah, first_sym_color
+        mov bx, first_sym_addr
+        call Set_sym
+
         push di
-        sub di, ramka_length * 2 - 2 + (ramka_width - 1) * one_line_len
+        sub di, ramka_length * 2 - 2 + ramka_width * one_line_len
 
         call Print_rectangle
         pop di
@@ -52,17 +58,21 @@ Start:
 
         push ramka_width * 2 + 1 - 4
 
-        mov ax, second_sym
+        mov ah, second_sym_color
+        mov bx, second_sym_addr
+        call Set_sym
+
         push di
-        sub di, ramka_length * 2 - 6 + (ramka_width - 3) * one_line_len
+        sub di, ramka_length * 2 - 6 + (ramka_width - 2) * one_line_len
 
         call Print_rectangle
         pop di
 
+        mov ah, text_color
         call Print_word
 
-		mov ax, 4c00h
-		int 21h
+        mov ax, 4c00h
+        int 21h
 
 ;-----------------------------------------------------------------------
 ;Рисует красивую рамку
@@ -74,7 +84,7 @@ Print_boarder proc
 
         push di
 
-        sub di, ramka_length * 2 + ramka_width * one_line_len  ; рисуем левый верхний угол
+        sub di, ramka_length * 2 + (ramka_width + 1) * one_line_len  ; рисуем левый верхний угол
         push di
         mov ax, left_up
         call Print_sym
@@ -95,7 +105,7 @@ Print_boarder proc
         mov ax, ver_line
         call Print_ver_line     
 
-        mov ax, left_down                                      ; рисуем правый нижний угол 
+        mov ax, left_down                                      ; рисуем левый нижний угол 
         call Print_sym
 
         add di, 2                                               ; рисуем нижнию линию
@@ -118,7 +128,7 @@ Print_boarder proc
 Get_size_of_word proc
 
         mov cl, ds:[str_len_ptr]                        ; в cl сохраняем длину строки
-		dec cl
+	sub cl, num_of_vars
         ret
         endp
 
@@ -143,6 +153,22 @@ Print_word proc
         pop cx
         pop si
         pop di
+
+        ret
+        endp
+
+;-----------------------------------------------------------------------
+;Задает первый символ прямоугольника и сохраняет в al
+;Принимает:  ah - цвет слова
+;            bx - адрес символа
+;Возвращает: al - символ
+;Портит:     di
+;------------------------------------------------------------------------
+Set_sym proc
+
+        sub si, dx
+        mov al, ds:[bx]
+        add si, dx
 
         ret
         endp
