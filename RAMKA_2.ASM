@@ -10,6 +10,8 @@ ramka_length    equ 20
 ramka_width     equ 4
 one_line_len    equ 160
 
+first_sym       = 0e23h         ; #
+second_sym      = 0e21h         ; !
 left_up         = 0ec9h         ; ╔             символы рамки          -->
 hor_line        = 0ecdh         ; ═
 right_up        = 0ebbh         ; ╗
@@ -29,7 +31,49 @@ Start:
 
 		call Get_word_begin_offset
 
-        
+        call Print_boarder
+
+        mov dx, cx                                       ; рисуем 1 прямогольник
+        add dx, ramka_length * 2
+        push dx
+
+        push ramka_width * 2 + 1
+
+        mov ax, first_sym
+        push di
+        sub di, ramka_length * 2 - 2 + (ramka_width - 1) * one_line_len
+
+        call Print_rectangle
+        pop di
+
+        mov dx, cx                                       ; рисуем 2 прямогольник
+        add dx, ramka_length * 2 - 4
+        push dx
+
+        push ramka_width * 2 + 1 - 4
+
+        mov ax, second_sym
+        push di
+        sub di, ramka_length * 2 - 6 + (ramka_width - 3) * one_line_len
+
+        call Print_rectangle
+        pop di
+
+        call Print_word
+
+		mov ax, 4c00h
+		int 21h
+
+;-----------------------------------------------------------------------
+;Рисует красивую рамку
+;Принимает:  di - адрес начала центрированной строки
+;            cx - длина слова
+;Возвращает: -
+;------------------------------------------------------------------------
+Print_boarder proc
+
+        push di
+
         sub di, ramka_length * 2 + ramka_width * one_line_len  ; рисуем левый верхний угол
         push di
         mov ax, left_up
@@ -59,12 +103,11 @@ Start:
         call Print_hor_line   
 
         mov ax, right_down                                      ; рисуем правый нижний угол 
-        call Print_sym                                       
+        call Print_sym
 
-
-
-		mov ax, 4c00h
-		int 21h
+        pop di
+        ret
+        endp
 
 
 ;-----------------------------------------------------------------------
@@ -76,6 +119,63 @@ Get_size_of_word proc
 
         mov cl, ds:[str_len_ptr]                        ; в cl сохраняем длину строки
 		dec cl
+        ret
+        endp
+
+;-----------------------------------------------------------------------
+;Выводит строку длинны cx по адресу ds:si, в видео память по адресу es:di, в ah находится цвет
+;Принимает:  si - адрес начала строки
+;            di - адрес начала в видео памяти
+;            ah - цвет слова
+;Возвращает: -
+;------------------------------------------------------------------------
+Print_word proc
+
+        push di
+        push si
+        push cx
+
+        print_string:
+		lodsb 
+		stosw
+		loop print_string
+
+        pop cx
+        pop si
+        pop di
+
+        ret
+        endp
+
+;-----------------------------------------------------------------------
+;Рисует прямоугольник из символов ax, верхний левый угол передается по адресу di
+;Предается через стек
+;Принимает: di - адрес верхнего левого угла прямоугольника
+;           ax - символ, из которого состоит прямоугольник
+;           trian_len - длина прямоугольника 
+;           trian_width - длина прямоугольника 
+;Возвращает: -
+;------------------------------------------------------------------------
+Print_rectangle proc
+
+        push bp
+        mov bp, sp
+
+        push cx
+        mov dx, ss:[bp + 06]
+
+loop_2:                                          ;while dx != 0, в dx записываем ширину прямоугольнка
+        mov cx, ss:[bp + 08]                     ; в cx записывае длину прямогольника
+        push di
+        rep stosw
+        pop di
+        add di, one_line_len
+        dec dx
+        cmp dx, 0
+        jne loop_2
+
+        pop cx
+        pop bp
         ret
         endp
 
