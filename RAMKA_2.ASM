@@ -36,11 +36,7 @@ Start:
 
         call Print_boarder
 
-        mov dx, cx                                       ; рисуем 1 прямогольник
-        add dx, ramka_length * 2
-        push dx
-
-        push ramka_width * 2 + 1
+        
 
         mov ah, first_sym_color
         mov bx, first_sym_addr
@@ -49,14 +45,17 @@ Start:
         push di
         sub di, ramka_length * 2 - 2 + ramka_width * one_line_len
 
-        call Print_rectangle
-        pop di
+        push di
+        push ax
 
-        mov dx, cx                                       ; рисуем 2 прямогольник
-        add dx, ramka_length * 2 - 4
+        mov dx, cx                                       ; рисуем 1 прямогольник
+        add dx, ramka_length * 2
         push dx
 
-        push ramka_width * 2 + 1 - 4
+        push ramka_width * 2 + 1
+        
+        call Print_rectangle
+        pop di
 
         mov ah, second_sym_color
         mov bx, second_sym_addr
@@ -64,6 +63,15 @@ Start:
 
         push di
         sub di, ramka_length * 2 - 6 + (ramka_width - 2) * one_line_len
+
+        push di
+        push ax
+
+        mov dx, cx                                       ; рисуем 2 прямогольник
+        add dx, ramka_length * 2 - 4
+        push dx
+
+        push ramka_width * 2 + 1 - 4
 
         call Print_rectangle
         pop di
@@ -174,24 +182,28 @@ Set_sym proc
         endp
 
 ;-----------------------------------------------------------------------
-;Рисует прямоугольник из символов ax, верхний левый угол передается по адресу di
-;Предается через стек
-;Принимает: di - адрес верхнего левого угла прямоугольника
-;           ax - символ, из которого состоит прямоугольник
-;           trian_len - длина прямоугольника 
-;           trian_width - длина прямоугольника 
-;Возвращает: -
+;Функция типа Pascal
+;Рисует прямоугольник из символа, верхний левый угол, ширина и длина передаетс по стеку
+;Параметры: 1 - адрес верхнего левого угла прямоугольника
+;           2 - символ, из которого будет состоять прямоугольник
+;           3 - длина прямоугольника
+;           4 - ширина прямоугольника
+;Портит: ax, dx
 ;------------------------------------------------------------------------
 Print_rectangle proc
 
         push bp
         mov bp, sp
 
+        push di
         push cx
-        mov dx, ss:[bp + 06]
+
+        mov di, ss:[bp + 10]
+        mov ax, ss:[bp + 08]
+        mov dx, ss:[bp + 04]
 
 loop_2:                                          ;while dx != 0, в dx записываем ширину прямоугольнка
-        mov cx, ss:[bp + 08]                     ; в cx записывае длину прямогольника
+        mov cx, ss:[bp + 06]                     ; в cx записывае длину прямогольника
         push di
         rep stosw
         pop di
@@ -201,8 +213,10 @@ loop_2:                                          ;while dx != 0, в dx записываем
         jne loop_2
 
         pop cx
+        pop di
+
         pop bp
-        ret
+        ret 8
         endp
 
 ;-----------------------------------------------------------------------
