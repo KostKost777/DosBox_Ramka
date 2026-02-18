@@ -34,7 +34,12 @@ Start:
 
         call Get_word_begin_offset
 
+        push ramka_width
+        push ramka_length
+        push cx
+        push di
         call Print_boarder
+        add sp, 10
 
         push first_color_addr
         call Get_sym_color
@@ -84,23 +89,52 @@ Start:
         mov ax, 4c00h
         int 21h
 
-;-----------------------------------------------------------------------
+;-------------------------Cdecl------------------------------------------
 ;Рисует красивую рамку
-;Принимает:  di - адрес начала центрированной строки
-;            cx - длина слова
-;Возвращает: -
+;Принимает:  1 - адрес начала центрированной строки 
+;            2 - длина слова
+;            3 - длина рамки
+;            4 - ширина рамки
+;Возвращает: 
+;Портит: bx
 ;------------------------------------------------------------------------
 Print_boarder proc
 
-        push di
+        push bp
+        mov bp, sp
 
-        sub di, ramka_length * 2 + (ramka_width + 1) * one_line_len  ; рисуем левый верхний угол
+        push di
+        push cx
+
+        mov di, ss:[bp + 4]
+
+        mov bx, ss:[bp + 8]
+        shl bx, 1
+        sub di, bx
+        mov bl, ss:[bp + 10]
+        inc bl
+        
+        push ax
+
+        mov al, 10
+        mul bl
+        shl ax, 4
+        sub di, ax
+
+        pop ax
+
+        mov bx, ss:[bp + 6]
+
         push di
         mov ax, left_up
         call Print_sym
 
         add di, 2                                               ; рисуем верхнию линию
         mov ax, hor_line
+        
+        mov cx, ramka_length
+        shl cx, 1
+        add cx, bx
         call Print_hor_line
 
         mov ax, right_up                                        ; рисуем правый верхний угол
@@ -108,11 +142,17 @@ Print_boarder proc
 
         add di, one_line_len                                    ; рисуем правую вертикальную линию
         mov ax, ver_line
+        mov cx, ramka_width
+        shl cx, 1
+        inc cx
         call Print_ver_line
 
         pop di                                                  ; вернулись в верхний правый угол 
         add di, one_line_len                                    ; рисуем левую вертикальную линию
         mov ax, ver_line
+        mov cx, ramka_width
+        shl cx, 1
+        inc cx
         call Print_ver_line     
 
         mov ax, left_down                                      ; рисуем левый нижний угол 
@@ -120,12 +160,18 @@ Print_boarder proc
 
         add di, 2                                               ; рисуем нижнию линию
         mov ax, hor_line
+        mov cx, ramka_length
+        shl cx, 1
+        add cx, bx
         call Print_hor_line   
 
         mov ax, right_down                                      ; рисуем правый нижний угол 
         call Print_sym
 
+        pop cx
         pop di
+        pop bp
+
         ret
         endp
 
@@ -285,7 +331,7 @@ Get_sym_color proc
 
 ;-----------------------------------------------------------------------
 ;По длине слова высчитывает адрес начала первго символа, центрируя надпись
-;Принимает:  cl - длина слова, centre_offset - смещение центра экрана
+;Принимает:  cl - длина слова
 ;Возвращает: di - смещение первого символа слова
 ;------------------------------------------------------------------------
 Get_word_begin_offset proc
@@ -310,21 +356,18 @@ Print_sym proc
         ret
         endp
          
-;-----------------------------------------------------------------------
+;--------------------------------Pascal---------------------------------
 ;Рисует на экране горизонтальную линию рамки
 ;Принимает:  di - адрес откуда начинать рисовать горизонтальную линию
 ;            ax - символ, из которого состоит линия
+;            cx - длина линии
 ;Возвращает: -
-;Портит:     di
+;Портит:     di, cx
 ;-----------------------------------------------------------------------
 Print_hor_line proc
 
-        push cx
-
-        add cx, 2 * ramka_length
         rep stosw
 
-        pop cx
         ret
         endp
 
@@ -332,14 +375,11 @@ Print_hor_line proc
 ;Рисует на экране вертикальную линию рамки
 ;Принимает:  di - адрес откуда начинать рисовать вертикальную линию
 ;            ax - символ, из которого состоит линия
+;            cx - высота линии
 ;Возвращает: -
-;Портит:     di
+;Портит:     di, cx
 ;-----------------------------------------------------------------------
 Print_ver_line proc
-
-        push cx
-        xor cx, cx
-        mov cx, 2 * ramka_width + 1
 
 loop_1:                                  ;while cx != 0
         
@@ -350,7 +390,6 @@ loop_1:                                  ;while cx != 0
         cmp cx, 0
         jne loop_1
 
-        pop cx
         ret
         endp
 
