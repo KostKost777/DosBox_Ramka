@@ -2,26 +2,26 @@
 .code
 org 100h
 
-centre_offset	equ 160 * 7 + 80
-video_seg       equ 0b800h
-str_ptr		equ 85h
-first_sym_addr  equ 82h
-second_sym_addr equ 83h
-str_len_ptr	equ 80h
-ramka_length    equ 20
-ramka_width     equ 4
-one_line_len    equ 160
-num_of_vars     equ 4
-
-first_sym_color  = 8ah           
-second_sym_color = 0ch           
+centre_offset	                equ 160 * 7 + 80
+video_seg                       equ 0b800h
+str_ptr		                equ 8bh
+first_sym_addr                  equ 82h
+second_sym_addr                 equ 83h
+first_color_addr                equ 85h
+second_color_addr               equ 88h
+str_len_ptr	                equ 80h
+ramka_length                    equ 20
+ramka_width                     equ 4
+one_line_len                    equ 160
+num_of_vars                     equ 10
+          
 left_up          = 0ec9h         ; ╔            
 hor_line         = 0ecdh         ; ═
 right_up         = 0ebbh         ; ╗
 ver_line         = 0ebah         ; ║
 right_down       = 0ebch         ; ╝
 left_down        = 0ec8h         ; ╚     
-text_color            = 09h           ; цвет
+text_color       = 09h           ; цвет
 
 Start:
         mov ax, video_seg       
@@ -36,9 +36,9 @@ Start:
 
         call Print_boarder
 
-        
+        push first_color_addr
+        call Get_sym_color
 
-        mov ah, first_sym_color
         mov bx, first_sym_addr
         call Set_sym
 
@@ -53,11 +53,13 @@ Start:
         push dx
 
         push ramka_width * 2 + 1
-        
+
         call Print_rectangle
         pop di
 
-        mov ah, second_sym_color
+        push second_color_addr
+        call Get_sym_color
+
         mov bx, second_sym_addr
         call Set_sym
 
@@ -219,6 +221,39 @@ loop_2:                                          ;while dx != 0, в dx записываем
         ret 8
         endp
 
+;------------------------------Pascal------------------------------------
+;Считывает из командной строки цвета для символов 
+;Параметры: 1 - адрес в памяти, где начинается цвет в 16-ричной записи
+;Возвращает: ah - цвет элемента
+;------------------------------------------------------------------------
+Get_sym_color proc 
+
+        push bp
+        mov bp, sp
+
+        push bx
+        push dx
+
+        mov bx, ss:[bp + 4]
+        mov dh, ds:[bx]
+
+        sub dh, 30h
+        shl dh, 4
+        mov ah, dh
+
+        inc bx
+        mov dh, ds:[bx]
+
+        sub dh, 30h
+        add ah, dh
+
+        pop dx
+        pop bx
+        pop bp
+
+        ret 2
+        endp
+
 ;-----------------------------------------------------------------------
 ;По длине слова высчитывает адрес начала первго символа, центрируя надпись
 ;Принимает:  cl - длина слова, centre_offset - смещение центра экрана
@@ -235,7 +270,7 @@ Get_word_begin_offset proc
         endp
 
 ;-----------------------------------------------------------------------
-;Рисует на экране значек симвла по введенному адресу
+;Рисует на экране значек символа по введенному адресу
 ;Принимает:  di - адрес куда поставить элемент, 
 ;            al - сам элемент
 ;            ah - цвет элемента
