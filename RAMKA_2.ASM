@@ -221,6 +221,35 @@ loop_2:                                          ;while dx != 0, в dx записываем
         ret 8
         endp
 
+;------------------------------------------------------------------------
+;Преобразует символ из командной строки в 16 - ричный цифру
+;Принимает: dh - ascii код 16-ричной цифры из командной строки
+;Возвращает: dh - 16-ричную цифру
+;Портит: dh
+;------------------------------------------------------------------------
+Parse_input_sym proc
+
+        sub dh, 30h
+
+        cmp dh, 31h
+        jae parse_little_verb
+
+        cmp dh, 11h
+        jae parse_big_verb
+
+        ret
+
+        parse_big_verb:
+        sub dh, 07h
+        ret
+
+        parse_little_verb:
+        sub dh, 27h
+        ret
+
+        endp
+        
+
 ;------------------------------Pascal------------------------------------
 ;Считывает из командной строки цвета для символов 
 ;Параметры: 1 - адрес в памяти, где начинается цвет в 16-ричной записи
@@ -237,14 +266,14 @@ Get_sym_color proc
         mov bx, ss:[bp + 4]
         mov dh, ds:[bx]
 
-        sub dh, 30h
+        call Parse_input_sym
         shl dh, 4
         mov ah, dh
 
         inc bx
         mov dh, ds:[bx]
 
-        sub dh, 30h
+        call Parse_input_sym
         add ah, dh
 
         pop dx
