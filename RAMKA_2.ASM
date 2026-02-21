@@ -39,18 +39,26 @@ Start:
         mov si, str_ptr 
         call CountWords
 
-        mov si, str_ptr
-
-        call Get_size_of_word
-
+        mov word ptr cx, [max_word_len]
+        mov di, centre_offset
         call Get_word_begin_offset
 
-        push ramka_width
-        push ramka_length
-        push cx
+        push ax
+
+        mov word ptr ax, [amont_of_words]
+        add ax, 2 * ramka_width
+        push ax
+
+        mov word ptr ax, [max_word_len]
+        add ax, 2 * ramka_length
+        push ax
+
         push di
+
         call Print_boarder
-        add sp, 10
+        add sp, 8
+
+        pop ax
 
         push first_color_addr
         call Get_sym_color
@@ -59,16 +67,19 @@ Start:
         call Set_sym
 
         push di
+
         sub di, ramka_length * 2 - 2 + ramka_width * one_line_len
 
         push di
         push ax
 
-        mov dx, cx                                       ; рисуем 1 прямогольник
-        add dx, ramka_length * 2
-        push dx
+        mov word ptr cx, [max_word_len]                                      ; рисуем 1 прямогольник
+        add cx, ramka_length * 2
+        push cx
 
-        push ramka_width * 2 + 1
+        mov word ptr cx, [amont_of_words]
+        add cx, ramka_width * 2
+        push cx
 
         call Print_rectangle
         pop di
@@ -85,17 +96,21 @@ Start:
         push di
         push ax
 
-        mov dx, cx                                       ; рисуем 2 прямогольник
-        add dx, ramka_length * 2 - 4
-        push dx
+        mov word ptr cx, [max_word_len]                                      ; рисуем 2 прямогольник
+        add cx, ramka_length * 2 - 4
+        push cx
 
-        push ramka_width * 2 + 1 - 4
+        mov word ptr cx, [amont_of_words]
+        add cx, ramka_width * 2 - 4
+        push cx
 
         call Print_rectangle
         pop di
 
         mov ah, text_color
-        call Print_word
+        mov si, str_ptr
+        mov di, centre_offset
+        call Print_words
 
         mov ax, 4c00h
         int 21h
@@ -103,9 +118,8 @@ Start:
 ;-------------------------Cdecl------------------------------------------
 ;Рисует красивую рамку
 ;Принимает:  1 - адрес начала центрированной строки 
-;            2 - длина слова
-;            3 - длина рамки
-;            4 - ширина рамки
+;            2 - длина рамки
+;            3 - ширина рамки
 ;Возвращает: 
 ;Портит: bx
 ;------------------------------------------------------------------------
@@ -119,10 +133,11 @@ Print_boarder proc
 
         mov di, ss:[bp + 4]
 
-        mov bx, ss:[bp + 8]
+        mov bx, ramka_length
         shl bx, 1
+
         sub di, bx
-        mov bl, ss:[bp + 10]
+        mov bl, ramka_width
         inc bl
         
         push ax
@@ -134,8 +149,6 @@ Print_boarder proc
 
         pop ax
 
-        mov bx, ss:[bp + 6]
-
         push di
         mov ax, left_up
         call Print_sym
@@ -143,9 +156,7 @@ Print_boarder proc
         add di, 2                                               ; рисуем верхнию линию
         mov ax, hor_line
         
-        mov cx, ramka_length
-        shl cx, 1
-        add cx, bx
+        mov cx, ss:[bp + 6]
         call Print_hor_line
 
         mov ax, right_up                                        ; рисуем правый верхний угол
@@ -153,17 +164,14 @@ Print_boarder proc
 
         add di, one_line_len                                    ; рисуем правую вертикальную линию
         mov ax, ver_line
-        mov cx, ramka_width
-        shl cx, 1
-        inc cx
+        mov cx, ss:[bp + 8]
         call Print_ver_line
 
-        pop di                                                  ; вернулись в верхний правый угол 
+        pop di                                                  ; вернулись в верхний правый угол
+
         add di, one_line_len                                    ; рисуем левую вертикальную линию
         mov ax, ver_line
-        mov cx, ramka_width
-        shl cx, 1
-        inc cx
+        mov cx, ss:[bp + 8]
         call Print_ver_line     
 
         mov ax, left_down                                      ; рисуем левый нижний угол 
@@ -171,9 +179,7 @@ Print_boarder proc
 
         add di, 2                                               ; рисуем нижнию линию
         mov ax, hor_line
-        mov cx, ramka_length
-        shl cx, 1
-        add cx, bx
+        mov cx, ss:[bp + 6]
         call Print_hor_line   
 
         mov ax, right_down                                      ; рисуем правый нижний угол 
@@ -289,20 +295,49 @@ Get_size_of_word proc
 ;            di - адрес начала в видео памяти
 ;            ah - цвет слова
 ;Возвращает: -
+;Портит:     si, cx
 ;------------------------------------------------------------------------
-Print_word proc
+Print_words proc
 
         push di
+        push bx
+
+loop_6:
+
+        push di
+        push ax
         push si
-        push cx
+
+        call Strlen
+
+        mov cx, ax
+        
+        pop si
+        pop ax
+
+        call Get_word_begin_offset
 
         print_string:
+
 		lodsb 
 		stosw
+
 		loop print_string
 
-        pop cx
-        pop si
+        pop di
+        cmp byte ptr ds:[si], 0Dh
+        je end_loop_6
+
+        inc si
+
+        add di, one_line_len
+
+        jmp loop_6
+
+
+end_loop_6:
+
+        pop bx
         pop di
 
         ret
@@ -432,10 +467,10 @@ Get_sym_color proc
 Get_word_begin_offset proc
 
         push cx
-        mov di, centre_offset
         and cl, 0feh			;делаем четным
         sub di, cx
         pop cx
+
         ret
         endp
 
@@ -447,7 +482,9 @@ Get_word_begin_offset proc
 ;Возвращает: -
 ;-----------------------------------------------------------------------
 Print_sym proc
+
         mov word ptr es:[di], ax
+
         ret
         endp
          
