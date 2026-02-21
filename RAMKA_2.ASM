@@ -1,4 +1,9 @@
 .model tiny
+
+.data
+    amont_of_words dw 0
+    max_word_len   dw 0
+    
 .code
 org 100h
 
@@ -29,6 +34,12 @@ Start:
         
         xor ax, ax
         mov si, str_ptr                                 ; сохраняем в si начало строки
+        call Get_max_word_len
+
+        mov si, str_ptr 
+        call CountWords
+
+        mov si, str_ptr
 
         call Get_size_of_word
 
@@ -175,6 +186,90 @@ Print_boarder proc
         ret
         endp
 
+;-----------------------------------------------------------------------
+;Ищет строку с максимальной длины
+;Принимает:  si - адрес начала строки
+;Возвращает: сохраняет значение в переменной max_word_len
+;Портит: si
+;------------------------------------------------------------------------
+Get_max_word_len proc
+
+        push ax
+loop_3:
+        call Strlen
+
+        cmp word ptr [max_word_len], ax
+
+        jae not_new_max_word
+        mov word ptr [max_word_len], ax
+
+not_new_max_word:
+
+        cmp byte ptr ds:[si - 1], 23h
+        je loop_3
+        
+        pop ax
+
+        ret
+        endp
+
+;-----------------------------------------------------------------------
+;Считает длину строки, которая оканчивается символом # или \r
+;Принимает:  si - адрес начала строки
+;Возвращает: ax - длина слова
+;Портит: si
+;------------------------------------------------------------------------
+Strlen proc
+
+        xor ax, ax
+
+loop_4:
+        inc ax
+        inc si
+
+        cmp byte ptr ds:[si], 23h
+        je end_loop_4
+
+        cmp byte ptr ds:[si], 0Dh
+        je end_loop_4
+
+        jmp loop_4
+
+end_loop_4:
+
+        inc si
+        ret
+        endp
+
+;-----------------------------------------------------------------------
+;Считает кол-во слов оканчивающихся в строке # или \r
+;Принимает:  si - адрес начала строки
+;Возвращает: amont_of_words - сохраняет туда значение
+;Портит: si
+;------------------------------------------------------------------------
+CountWords proc
+        
+        push ax
+        xor ax, ax
+
+loop_5:
+        inc si
+        cmp byte ptr ds:[si], 23h
+        jne not_new_word
+        inc ax
+
+        not_new_word:
+
+        cmp byte ptr ds:[si], 0Dh
+        jne loop_5
+        
+        inc ax
+
+        mov word ptr [amont_of_words], ax
+
+        pop ax
+        ret
+        endp
 
 ;-----------------------------------------------------------------------
 ;По адресу длины строки высчитывает длину слова и кладет ее в регистр cl
@@ -394,3 +489,5 @@ loop_1:                                  ;while cx != 0
         endp
 
 end Start
+
+
