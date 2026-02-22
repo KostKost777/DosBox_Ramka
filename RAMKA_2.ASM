@@ -18,14 +18,13 @@ str_len_ptr	                equ 80h
 ramka_length                    equ 20
 ramka_width                     equ 4
 one_line_len                    equ 160
-num_of_vars                     equ 10
           
-left_up          = 0ec9h         ; ╔            
-hor_line         = 0ecdh         ; ═
-right_up         = 0ebbh         ; ╗
-ver_line         = 0ebah         ; ║
-right_down       = 0ebch         ; ╝
-left_down        = 0ec8h         ; ╚     
+left_up          = 0Fc9h         ; ╔            
+hor_line         = 0Fcdh         ; ═
+right_up         = 0Fbbh         ; ╗
+ver_line         = 0Fbah         ; ║
+right_down       = 0Fbch         ; ╝
+left_down        = 0Fc8h         ; ╚     
 text_color       = 09h           ; цвет
 
 Start:
@@ -34,14 +33,14 @@ Start:
         
         xor ax, ax
         mov si, str_ptr                                 ; сохраняем в si начало строки
-        call Get_max_word_len
+        call GetMaxWordLen
 
         mov si, str_ptr 
         call CountWords
 
         mov word ptr cx, [max_word_len]
         mov di, centre_offset
-        call Get_word_begin_offset
+        call CalculateWordBeginAddr
 
         push ax
 
@@ -55,16 +54,16 @@ Start:
 
         push di
 
-        call Print_boarder
+        call PrintBoarder
         add sp, 8
 
         pop ax
 
         push first_color_addr
-        call Get_sym_color
+        call GetSymbolColor
 
         mov bx, first_sym_addr
-        call Set_sym
+        call SetSymbol
 
         push di
 
@@ -81,14 +80,14 @@ Start:
         add cx, ramka_width * 2
         push cx
 
-        call Print_rectangle
+        call PrintRectangle
         pop di
 
         push second_color_addr
-        call Get_sym_color
+        call GetSymbolColor
 
         mov bx, second_sym_addr
-        call Set_sym
+        call SetSymbol
 
         push di
         sub di, ramka_length * 2 - 6 + (ramka_width - 2) * one_line_len
@@ -104,18 +103,18 @@ Start:
         add cx, ramka_width * 2 - 4
         push cx
 
-        call Print_rectangle
+        call PrintRectangle
         pop di
 
         mov ah, text_color
         mov si, str_ptr
         mov di, centre_offset
-        call Print_words
+        call PrintWords
 
         mov ax, 4c00h
         int 21h
 
-;-------------------------Cdecl------------------------------------------
+;-------------------------Cdecl--------------------------ParseInputSymbol----------------
 ;Рисует красивую рамку
 ;Принимает:  1 - адрес начала центрированной строки 
 ;            2 - длина рамки
@@ -123,7 +122,7 @@ Start:
 ;Возвращает: 
 ;Портит: bx
 ;------------------------------------------------------------------------
-Print_boarder proc
+PrintBoarder proc
 
         push bp
         mov bp, sp
@@ -151,39 +150,39 @@ Print_boarder proc
 
         push di
         mov ax, left_up
-        call Print_sym
+        call PrintSymbol
 
         add di, 2                                               ; рисуем верхнию линию
         mov ax, hor_line
         
         mov cx, ss:[bp + 6]
-        call Print_hor_line
+        call PrintHorLine
 
         mov ax, right_up                                        ; рисуем правый верхний угол
-        call Print_sym
+        call PrintSymbol
 
         add di, one_line_len                                    ; рисуем правую вертикальную линию
         mov ax, ver_line
         mov cx, ss:[bp + 8]
-        call Print_ver_line
+        call PrintVerLine
 
         pop di                                                  ; вернулись в верхний правый угол
 
         add di, one_line_len                                    ; рисуем левую вертикальную линию
         mov ax, ver_line
         mov cx, ss:[bp + 8]
-        call Print_ver_line     
+        call PrintVerLine     
 
         mov ax, left_down                                      ; рисуем левый нижний угол 
-        call Print_sym
+        call PrintSymbol
 
         add di, 2                                               ; рисуем нижнию линию
         mov ax, hor_line
         mov cx, ss:[bp + 6]
-        call Print_hor_line   
+        call PrintHorLine   
 
         mov ax, right_down                                      ; рисуем правый нижний угол 
-        call Print_sym
+        call PrintSymbol
 
         pop cx
         pop di
@@ -198,7 +197,7 @@ Print_boarder proc
 ;Возвращает: сохраняет значение в переменной max_word_len
 ;Портит: si
 ;------------------------------------------------------------------------
-Get_max_word_len proc
+GetMaxWordLen proc
 
         push ax
 loop_3:
@@ -211,6 +210,8 @@ loop_3:
 
 not_new_max_word:
 
+        add si, ax
+        inc si
         cmp byte ptr ds:[si - 1], 23h
         je loop_3
         
@@ -223,10 +224,10 @@ not_new_max_word:
 ;Считает длину строки, которая оканчивается символом # или \r
 ;Принимает:  si - адрес начала строки
 ;Возвращает: ax - длина слова
-;Портит: si
 ;------------------------------------------------------------------------
 Strlen proc
 
+        push si
         xor ax, ax
 
 loop_4:
@@ -243,7 +244,7 @@ loop_4:
 
 end_loop_4:
 
-        inc si
+        pop si
         ret
         endp
 
@@ -278,18 +279,6 @@ loop_5:
         endp
 
 ;-----------------------------------------------------------------------
-;По адресу длины строки высчитывает длину слова и кладет ее в регистр cl
-;Принимает:  str_len_ptr - адрес длины строки, относительно ds
-;Возвращает: cl - длина слова
-;------------------------------------------------------------------------
-Get_size_of_word proc
-
-        mov cl, ds:[str_len_ptr]                        ; в cl сохраняем длину строки
-	sub cl, num_of_vars
-        ret
-        endp
-
-;-----------------------------------------------------------------------
 ;Выводит строку длинны cx по адресу ds:si, в видео память по адресу es:di, в ah находится цвет
 ;Принимает:  si - адрес начала строки
 ;            di - адрес начала в видео памяти
@@ -297,7 +286,7 @@ Get_size_of_word proc
 ;Возвращает: -
 ;Портит:     si, cx
 ;------------------------------------------------------------------------
-Print_words proc
+PrintWords proc
 
         push di
         push bx
@@ -306,16 +295,14 @@ loop_6:
 
         push di
         push ax
-        push si
 
         call Strlen
 
         mov cx, ax
         
-        pop si
         pop ax
 
-        call Get_word_begin_offset
+        call CalculateWordBeginAddr
 
         print_string:
 
@@ -350,11 +337,9 @@ end_loop_6:
 ;Возвращает: al - символ
 ;Портит:     di
 ;------------------------------------------------------------------------
-Set_sym proc
+SetSymbol proc
 
-        sub si, dx
         mov al, ds:[bx]
-        add si, dx
 
         ret
         endp
@@ -368,7 +353,7 @@ Set_sym proc
 ;           4 - ширина прямоугольника
 ;Портит: ax, dx
 ;------------------------------------------------------------------------
-Print_rectangle proc
+PrintRectangle proc
 
         push bp
         mov bp, sp
@@ -403,7 +388,7 @@ loop_2:                                          ;while dx != 0, в dx записываем
 ;Возвращает: dh - 16-ричную цифру
 ;Портит: dh
 ;------------------------------------------------------------------------
-Parse_input_sym proc
+ParseInputSymbol proc
 
         sub dh, 30h
 
@@ -431,7 +416,7 @@ Parse_input_sym proc
 ;Параметры: 1 - адрес в памяти, где начинается цвет в 16-ричной записи
 ;Возвращает: ah - цвет элемента
 ;------------------------------------------------------------------------
-Get_sym_color proc 
+GetSymbolColor proc 
 
         push bp
         mov bp, sp
@@ -442,14 +427,14 @@ Get_sym_color proc
         mov bx, ss:[bp + 4]
         mov dh, ds:[bx]
 
-        call Parse_input_sym
+        call ParseInputSymbol
         shl dh, 4
         mov ah, dh
 
         inc bx
         mov dh, ds:[bx]
 
-        call Parse_input_sym
+        call ParseInputSymbol
         add ah, dh
 
         pop dx
@@ -464,7 +449,7 @@ Get_sym_color proc
 ;Принимает:  cl - длина слова
 ;Возвращает: di - смещение первого символа слова
 ;------------------------------------------------------------------------
-Get_word_begin_offset proc
+CalculateWordBeginAddr proc
 
         push cx
         and cl, 0feh			;делаем четным
@@ -481,7 +466,7 @@ Get_word_begin_offset proc
 ;            ah - цвет элемента
 ;Возвращает: -
 ;-----------------------------------------------------------------------
-Print_sym proc
+PrintSymbol proc
 
         mov word ptr es:[di], ax
 
@@ -496,7 +481,7 @@ Print_sym proc
 ;Возвращает: -
 ;Портит:     di, cx
 ;-----------------------------------------------------------------------
-Print_hor_line proc
+PrintHorLine proc
 
         rep stosw
 
@@ -511,7 +496,7 @@ Print_hor_line proc
 ;Возвращает: -
 ;Портит:     di, cx
 ;-----------------------------------------------------------------------
-Print_ver_line proc
+PrintVerLine proc
 
 loop_1:                                  ;while cx != 0
         
