@@ -3,19 +3,18 @@
 .data
     amont_of_words         dw 0
     max_word_len           dw 0
-
     left_up                db 0         
     hor_line               db 0
     right_up               db 0
     ver_line               db 0
     right_down             db 0
     left_down              db 0   
-    text_color             db 0
+    base_color             db 0
     str_ptr		           dw 0
-    first_sym_addr         dw 0
-    second_sym_addr        dw 0
-    first_color_addr       dw 0
-    second_color_addr      dw 0
+    first_sym              db 0
+    second_sym             db 0
+    first_color            db 0
+    second_color           db 0
     header_addr            dw 0
     header_len             dw 0
 
@@ -30,104 +29,24 @@ ramka_length                    equ 22
 ramka_width                     equ 6
 one_line_len                    equ 160
 DOS_sym                         equ 21h
-DOS_sym_color                   equ 0fh
+DOS_sym_color                   equ 70h
 
 Start:
+                mov ax, 1003h
+                mov bx, 0
+                int 10h
+
                 mov ax, video_seg       
                 mov es, ax
 
                 call SetMode
-                
-                xor ax, ax
-                mov si, str_ptr                                 ; сохраняем в si начало строки
-                call GetMaxWordLen
 
-                mov si, str_ptr 
-                call CountWords
-
-                mov word ptr cx, [max_word_len]
-                mov di, centre_offset
-                call CalcWordBeginAddr
-
-                push ax
-
-                mov word ptr ax, [amont_of_words]
-                add ax, 2 * ramka_width
-                push ax
-
-                mov word ptr ax, [max_word_len]
-                add ax, 2 * ramka_length
-                push ax
-
-                push di
-
-                ;call PrintBoarder
-                add sp, 8
-
-                pop ax
-
-                push first_color_addr
-                call SetSymbolColor
-
-                mov bx, first_sym_addr
-                call SetSymbol
-
-                push di
-
-                sub di, ramka_length * 2 - 2 + ramka_width * one_line_len
-
-                push di
-                push ax
-
-                mov word ptr cx, [max_word_len]                                      ; рисуем 1 прямогольник
-                add cx, ramka_length * 2
-                push cx
-
-                mov word ptr cx, [amont_of_words]
-                add cx, ramka_width * 2
-                push cx
-
-                call PrintRectangle
-                pop di
-
-                push second_color_addr
-                call SetSymbolColor
-
-                mov bx, second_sym_addr
-                call SetSymbol
-
-                push di
-                sub di, ramka_length * 2 - 6 + (ramka_width - 2) * one_line_len
-
-                push di
-                push ax
-
-                mov word ptr cx, [max_word_len]                                      ; рисуем 2 прямогольник
-                add cx, ramka_length * 2 - 4
-                push cx
-
-                mov word ptr cx, [amont_of_words]
-                add cx, ramka_width * 2 - 4
-                push cx
-
-                call PrintRectangle
-                pop di
-
-                mov ah, text_color
-                mov si, str_ptr
-                mov di, centre_offset
-                call PrintWords
-
-                call PrintHeader
-
-                mov ax, 4c00h
-                int 21h
 
 ;------------------------------------------------------------------------
-;Устанавливает текущий мод
-;Принимает:  -
-;Возвращает: -
-;Портит: bx
+; определение режима программы
+; Принимает:  -
+; Возвращает: -
+; Портит: bx
 ;------------------------------------------------------------------------
 
 SetMode         proc
@@ -140,10 +59,7 @@ SetMode         proc
                 cmp byte ptr [bx], '2'
                 je second_mode
 
-                cmp byte ptr [bx], '3'
-                je third_mode
-
-                int 21h
+                ret
 
 first_mode:
                 inc bx
@@ -152,29 +68,26 @@ first_mode:
 
 second_mode:
                 inc bx
-                ;call SecondMode
-                ret
-
-third_mode:     
-                inc bx
-                ;call ThirdMode
+                call SecondMode
                 ret
 
                 endp
 
 ;------------------------------------------------------------------------
-;Мод 1, выводит рамку в сител DOS
-;Принимает:  -
-;Возвращает: -
-;Портит: 
+; режим 2, мой режим
+; Принимает:  -
+; Возвращает: -
 ;------------------------------------------------------------------------
-FirstMode       proc
 
-                call SetHeaderAddr
+SecondMode      proc
+
+                call SetRecSyms
+                call SetRecColors
                 call SetStrBeginPtr
+                call SetBaseSymSecondMode
 
                 xor ax, ax
-                mov si, [str_ptr]                                 ; сохраняем в si начало строки
+                mov si, [str_ptr]                                 ; загружаем в si указатель на строку
                 call GetMaxWordLen
 
                 mov si, [str_ptr] 
@@ -184,11 +97,158 @@ FirstMode       proc
                 mov di, centre_offset
                 call CalcWordBeginAddr
 
-                push di                                         ; сохраняем значение наччала куда выводить строку потом
+                push di
 
-                push DOS_sym_color 
+                mov word ptr ax, [amont_of_words]
+                add ax, 2 * ramka_width
+                push ax
+
+                mov word ptr ax, [max_word_len]
+                add ax, 2 * ramka_length
+                push ax
+
+                sub di, ramka_length * 2 + 2 + ramka_width * one_line_len
+                push di
+
+                mov ah, [base_color]
+
+                call PrintBoarder
+                add sp, 6
+
+                pop di
+
+                mov al, first_sym
+                mov ah, first_color
+
+                push di
+
+                sub di, ramka_length * 2 + (ramka_width - 1) * one_line_len
+
+                push di
+                push ax
+
+                mov word ptr cx, [max_word_len]                                      ; ширина 1 прямоугольника
+                add cx, ramka_length * 2
+                push cx
+
+                mov word ptr cx, [amont_of_words]
+                add cx, ramka_width * 2
+                push cx
+
+                call PrintRectangle
+                pop di
+
+                mov al, second_sym
+                mov ah, second_color
+
+                push di
+
+                sub di, ramka_length * 2 - 4 + (ramka_width - 3) * one_line_len
+
+                push di
+                push ax
+
+                mov word ptr cx, [max_word_len]                                      ; ширина 1 прямоугольника
+                add cx, ramka_length * 2 - 4
+                push cx
+
+                mov word ptr cx, [amont_of_words]
+                add cx, ramka_width * 2 - 4
+                push cx
+
+                call PrintRectangle
+                pop di
+
+                mov ah, base_color
+                mov si, str_ptr
+                mov di, centre_offset + one_line_len
+                call PrintWords
+
+                mov ax, 4c00h
+                int 21h
+
+                ret
+                endp
+
+
+;------------------------------------------------------------------------
+; Считывает из консоли цвета
+; Принимает:  -
+; Возвращает: -
+; Портит: bx, ax
+;------------------------------------------------------------------------
+SetRecColors    proc
+
+                call SkipSpaces
+                 
+                push bx
                 call SetSymbolColor
 
+                mov [first_color], ah
+
+                add bx, 2
+                call SkipSpaces
+
+                push bx
+                call SetSymbolColor
+
+                mov [second_color], ah
+
+                add bx, 2
+              
+                ret
+                endp
+
+;------------------------------------------------------------------------
+; Считывает из консоли символы рамки
+; Принимает:  -
+; Возвращает: -
+; Портит: ax, bx
+;------------------------------------------------------------------------
+SetRecSyms      proc
+
+                call SkipSpaces
+                 
+                mov byte ptr al, [bx]
+                mov [first_sym], al
+
+                inc bx
+
+                mov byte ptr al, [bx]
+                mov [second_sym], al
+
+                inc bx
+
+                ret
+                endp
+
+;------------------------------------------------------------------------
+; режим 1, вывод рамки и символов DOS
+; Принимает:  -
+; Возвращает: -
+; Портит: 
+;------------------------------------------------------------------------
+FirstMode       proc
+
+                call SetHeaderAddr
+                call SetStrBeginPtr
+                call SetBaseSymFisrtMode
+
+                xor ax, ax
+                mov si, [str_ptr]                                 ; загружаем в si указатель на строку
+                call GetMaxWordLen
+
+                mov si, [str_ptr] 
+                call CountWords
+
+                mov word ptr cx, [max_word_len]
+                mov di, centre_offset
+                call CalcWordBeginAddr
+
+                push di                                         ; загружаем координаты центра для слов на печать
+
+                mov  ah, DOS_sym_color 
+                
                 mov bx, DOS_sym
                 call SetSymbol
                  
@@ -222,14 +282,13 @@ FirstMode       proc
 
                 push di
 
-                call SetBoarderSymFisrtMode
-
-                mov ah, 4eh
+                mov ah, 70h
 
                 call PrintBoarder
+                add sp, 6
                 pop di
 
-                mov ah, [text_color]
+                mov ah, [base_color]
                 mov si, str_ptr
                 mov di, centre_offset
                 call PrintWords
@@ -240,6 +299,7 @@ FirstMode       proc
 
                 call CalcWordBeginAddr
             
+                mov ah, DOS_sym_color
                 call PrintHeader
 
                 mov ah, 4Ch   
@@ -251,30 +311,12 @@ FirstMode       proc
                 endp
 
 
-;------------------------------------------------------------------------
-;Устанавливает обычные значения для рамки DOS
-;Принимает:  -
-;Возвращает: -
-;------------------------------------------------------------------------
-
-SetBoarderSymFisrtMode  proc
-                
-                mov byte ptr [left_up],    0c9h 
-                mov byte ptr [hor_line],   0cdh
-                mov byte ptr [right_up],   0bbh
-                mov byte ptr [ver_line],   0bah
-                mov byte ptr [right_down], 0bch
-                mov byte ptr [left_down],  0c8h 
-                mov byte ptr [text_color], 0Fh
-
-                ret
-                endp
 
 ;------------------------------------------------------------------------
-;Устанавливает в переменную header_addr начала адреса заголовка
-;Принимает:  bx - адрес из командной строки
-;Возвращает: -
-;Портит: bx, ax
+; пропускаем пробелы и устанавливаем header_addr адрес начала заголовка
+; Принимает:  bx - адрес на текущую строку
+; Возвращает: -
+; Портит: bx, ax
 ;------------------------------------------------------------------------
 SetHeaderAddr   proc
 
@@ -298,10 +340,10 @@ end_skip_header:
 
 
 ;------------------------------------------------------------------------
-;Устанавливает в переменную str_ptr начала адреса строки
-;Принимает:  bx - адрес из командной строки
-;Возвращает: -
-;Портит: bx, ax
+; пропускаем пробелы и устанавливаем str_ptr адрес начала строки
+; Принимает:  bx - адрес на текущую строку
+; Возвращает: -
+; Портит: bx, ax
 ;------------------------------------------------------------------------
 SetStrBeginPtr   proc
 
@@ -314,10 +356,10 @@ SetStrBeginPtr   proc
 
 
 ;------------------------------------------------------------------------
-;Пропускает в командной строке все пробельные символы
-;Принимает:  bx - адрес из командной строки
-;Возвращает: -
-;Портит: bx
+; пропускаем пробелы в строке до первого символа
+; Принимает:  bx - адрес на текущую строку
+; Возвращает: -
+; Портит: bx
 ;------------------------------------------------------------------------
 SkipSpaces      proc
 
@@ -333,12 +375,12 @@ end_skip_spaces:
                 endp
 
 ;-------------------------Cdecl------------------------------------------
-;Рисует красивую рамку
-;Принимает:  1 - адрес верхнего угла 
-;            2 - длина рамки
-;            3 - ширина рамки
-;Возвращает: 
-;Портит: bx
+; печать обрамления рамки
+; Принимает:  1 - адрес левого верхнего угла 
+;            2 - ширина рамки
+;            3 - высота рамки
+; Возвращает: 
+; Портит: bx
 ;------------------------------------------------------------------------
 PrintBoarder    proc
 
@@ -355,36 +397,36 @@ PrintBoarder    proc
                 mov al, [left_up]
                 call PrintSymbol
 
-                add di, 2                                               ; рисуем верхнию линию
+                add di, 2                                               ; перейти к горизонтальной линии
                 mov al, [hor_line]
                 
                 mov cx, ss:[bp + 6]
                 call PrintHorLine
 
-                mov al, [right_up]                                        ; рисуем правый верхний угол
+                mov al, [right_up]                                        ; перейти к правому верхнему углу
                 call PrintSymbol
 
-                add di, one_line_len                                    ; рисуем правую вертикальную линию
+                add di, one_line_len                                    ; перейти к следующей строке экрана
                 mov al, [ver_line]
                 mov cx, ss:[bp + 8]
                 call PrintVerLine
 
-                pop di                                                  ; вернулись в верхний правый угол
+                pop di                                                  ; возвращаемся к левому верхнему углу
 
-                add di, one_line_len                                    ; рисуем левую вертикальную линию
+                add di, one_line_len                                    ; перейти к следующей строке экрана
                 mov al, [ver_line]
                 mov cx, ss:[bp + 8]
                 call PrintVerLine     
 
-                mov al, [left_down]                                      ; рисуем левый нижний угол 
+                mov al, [left_down]                                      ; перейти к левому нижнему углу 
                 call PrintSymbol
 
-                add di, 2                                               ; рисуем нижнию линию
+                add di, 2                                               ; перейти к нижней линии
                 mov al, [hor_line]
                 mov cx, ss:[bp + 6]
                 call PrintHorLine   
 
-                mov al, [right_down]                                      ; рисуем правый нижний угол 
+                mov al, [right_down]                                      ; перейти к правому нижнему углу 
                 call PrintSymbol
 
                 pop cx
@@ -395,10 +437,10 @@ PrintBoarder    proc
                 endp
 
 ;-----------------------------------------------------------------------
-;Ищет строку с максимальной длины
-;Принимает:  si - адрес начала строки
-;Возвращает: сохраняет значение в переменной max_word_len
-;Портит: si
+; проход строки и запоминание максимальной длины
+; Принимает:  si - адрес начала строки
+; Возвращает: запоминает координаты и устанавливает max_word_len
+; Портит: si
 ;------------------------------------------------------------------------
 GetMaxWordLen   proc
 
@@ -424,9 +466,9 @@ not_new_max_word:
                 endp
 
 ;-----------------------------------------------------------------------
-;Считает длину строки, которая оканчивается символом # или \r
-;Принимает:  si - адрес начала строки
-;Возвращает: ax - длина слова
+; считает длину слова, слова ограничиваются # или \r
+; Принимает:  si - адрес начала слова
+; Возвращает: ax - длина слова
 ;------------------------------------------------------------------------
 Strlen          proc
 
@@ -452,10 +494,10 @@ end_loop_4:
                 endp
 
 ;-----------------------------------------------------------------------
-;Считает кол-во слов оканчивающихся в строке # или \r
-;Принимает:  si - адрес начала строки
-;Возвращает: amont_of_words - сохраняет туда значение
-;Портит: si
+; считает кол-во слов ограниченных в строке # или \r
+; Принимает:  si - адрес начала строки
+; Возвращает: amont_of_words - количество найденных слов
+; Портит: si
 ;------------------------------------------------------------------------
 CountWords      proc
         
@@ -482,12 +524,12 @@ not_new_word:
                 endp
 
 ;-----------------------------------------------------------------------
-;Выводит строку длинны cx по адресу ds:si, в видео память по адресу es:di, в ah находится цвет
-;Принимает:  si - адрес начала заголовка
-;            di - адрес начала в видео памяти
-;            ah - цвет слова
-;Возвращает: -
-;Портит:     si, cx
+; выводит строку длиной cx из источника ds:si, в видеопамять по адресу es:di, с ah в качестве цвета
+; Принимает:  si - адрес источника
+;            di - адрес в видеопамяти
+;            ah - цвет символа
+; Возвращает: -
+; Портит:     si, cx
 ;------------------------------------------------------------------------
 
 PrintHeader     proc
@@ -498,12 +540,23 @@ PrintHeader     proc
                 mov si, [header_addr]
                 mov cx, [header_len]
 
+                sub di, 2
+                mov byte ptr es:[di], 0h
+                inc di
+                mov byte ptr es:[di], 70h
+                inc di
+
 print_header:
 
                 lodsb 
                 stosw
 
                 loop print_header
+
+
+                mov byte ptr es:[di], 0h
+                inc di
+                mov byte ptr es:[di], 70h
 
                 pop bx
                 pop di
@@ -515,12 +568,12 @@ print_header:
 
 
 ;-----------------------------------------------------------------------
-;Выводит строку длинны cx по адресу ds:si, в видео память по адресу es:di, в ah находится цвет
-;Принимает:  si - адрес начала строки
-;            di - адрес начала в видео памяти
-;            ah - цвет слова
-;Возвращает: -
-;Портит:     si, cx
+; выводит строку длиной cx из источника ds:si, в видеопамять по адресу es:di, с ah в качестве цвета
+; Принимает:  si - адрес начала строки
+;            di - адрес в видеопамяти
+;            ah - цвет символа
+; Возвращает: -
+; Портит:     si, cx
 ;------------------------------------------------------------------------
 PrintWords      proc
 
@@ -567,11 +620,11 @@ end_loop_6:
                 endp
 
 ;-----------------------------------------------------------------------
-;Задает первый символ прямоугольника и сохраняет в al
-;Принимает:  ah - цвет слова
+; получаем символ по указанному адресу и записываем в al
+; Принимает:  ah - цвет символа
 ;            bx - адрес символа
-;Возвращает: al - символ
-;Портит:     di
+; Возвращает: al - символ
+; Портит:     di
 ;------------------------------------------------------------------------
 SetSymbol       proc
 
@@ -581,13 +634,13 @@ SetSymbol       proc
                 endp
 
 ;-----------------------------------------------------------------------
-;Функция типа Pascal
-;Рисует прямоугольник из символа, верхний левый угол, ширина и длина передаетс по стеку
-;Параметры: 1 - адрес верхнего левого угла прямоугольника
-;           2 - символ, из которого будет состоять прямоугольник
-;           3 - длина прямоугольника
-;           4 - ширина прямоугольника
-;Портит: ax, dx
+; стиль Pascal
+; печать прямоугольника по координатам, ширина, высота и цветом по умолчанию
+; параметры: 1 - адрес левого верхнего угла прямоугольника
+;           2 - символ, на который закрашивается прямоугольник
+;           3 - ширина прямоугольника
+;           4 - высота прямоугольника
+; Портит: ax, dx
 ;------------------------------------------------------------------------
 PrintRectangle  proc
 
@@ -601,8 +654,8 @@ PrintRectangle  proc
                 mov ax, ss:[bp + 08]
                 mov dx, ss:[bp + 04]
 
-loop_2:                                          ;while dx != 0, в dx записываем ширину прямоугольнка
-                mov cx, ss:[bp + 06]                     ; в cx записывае длину прямогольника
+loop_2:                                          ;while dx != 0, в dx хранится высота прямоугольника
+                mov cx, ss:[bp + 06]                     ; в cx хранится ширина прямоугольника
                 push di
                 rep stosw
                 pop di
@@ -619,10 +672,10 @@ loop_2:                                          ;while dx != 0, в dx записываем
                 endp
 
 ;------------------------------------------------------------------------
-;Преобразует символ из командной строки в 16 - ричный цифру
-;Принимает: dh - ascii код 16-ричной цифры из командной строки
-;Возвращает: dh - 16-ричную цифру
-;Портит: dh
+; конвертация символа из командной строки в 16 - ричное число
+; Принимает: dh - ascii код 16-ричной цифры из командной строки
+; Возвращает: dh - 16-ричное число
+; Портит: dh
 ;------------------------------------------------------------------------
 ParseInputSymbol proc
 
@@ -648,9 +701,9 @@ parse_little_verb:
         
 
 ;------------------------------Pascal------------------------------------
-;Считывает из командной строки цвета для символов 
-;Параметры: 1 - адрес в памяти, где начинается цвет в 16-ричной записи
-;Возвращает: ah - цвет элемента
+; получение из командной строки цвета для символов 
+; параметры: 1 - адрес в строке, где записан цвет в 16-ричном виде
+; Возвращает: ah - цвет символов
 ;------------------------------------------------------------------------
 SetSymbolColor  proc 
 
@@ -681,14 +734,14 @@ SetSymbolColor  proc
                 endp
 
 ;-----------------------------------------------------------------------
-;По длине слова высчитывает адрес начала первго символа, центрируя надпись
-;Принимает:  cl - длина слова
-;Возвращает: di - смещение первого символа слова
+; по номеру символа получаем адрес центра символа, делая выравнивание
+; Принимает:  cl - номер символа
+; Возвращает: di - результирующий адрес символа
 ;------------------------------------------------------------------------
 CalcWordBeginAddr proc
 
                 push cx
-                and cl, 0feh			;делаем четным
+                and cl, 0feh			; четное число
                 sub di, cx
                 pop cx
 
@@ -696,11 +749,11 @@ CalcWordBeginAddr proc
                 endp
 
 ;-----------------------------------------------------------------------
-;Рисует на экране значек символа по введенному адресу
-;Принимает:  di - адрес куда поставить элемент, 
-;            al - сам элемент
-;            ah - цвет элемента
-;Возвращает: -
+; печать по адресу одного символа в видеопамять
+; Принимает:  di - адрес куда печатать символ, 
+;            al - код символа
+;            ah - цвет символа
+; Возвращает: -
 ;-----------------------------------------------------------------------
 PrintSymbol     proc
 
@@ -710,12 +763,12 @@ PrintSymbol     proc
                 endp
          
 ;--------------------------------Pascal---------------------------------
-;Рисует на экране горизонтальную линию рамки
-;Принимает:  di - адрес откуда начинать рисовать горизонтальную линию
-;            ax - символ, из которого состоит линия
+; печать по адресу горизонтальной линии символов
+; Принимает:  di - адрес куда печатать первый символ горизонтальной линии
+;            ax - символ, на который закрашивается линия
 ;            cx - длина линии
-;Возвращает: -
-;Портит:     di, cx
+; Возвращает: -
+; Портит:     di, cx
 ;-----------------------------------------------------------------------
 PrintHorLine    proc
 
@@ -725,12 +778,12 @@ PrintHorLine    proc
                 endp
 
 ;-----------------------------------------------------------------------
-;Рисует на экране вертикальную линию рамки
-;Принимает:  di - адрес откуда начинать рисовать вертикальную линию
-;            ax - символ, из которого состоит линия
-;            cx - высота линии
-;Возвращает: -
-;Портит:     di, cx
+; печать по адресу вертикальной линии символов
+; Принимает:  di - адрес куда печатать первый символ вертикальной линии
+;            ax - символ, на который закрашивается линия
+;            cx - число линий
+; Возвращает: -
+; Портит:     di, cx
 ;-----------------------------------------------------------------------
 PrintVerLine    proc
 
@@ -746,6 +799,43 @@ loop_1:                                  ;while cx != 0
                 ret
                 endp
 
+
+                ;------------------------------------------------------------------------
+; Установка символов рамки для режима DOS
+; Принимает:  -
+; Возвращает: -
+;------------------------------------------------------------------------
+
+SetBaseSymFisrtMode  proc
+                
+                mov byte ptr [left_up],    0c9h 
+                mov byte ptr [hor_line],   0cdh
+                mov byte ptr [right_up],   0bbh
+                mov byte ptr [ver_line],   0bah
+                mov byte ptr [right_down], 0bch
+                mov byte ptr [left_down],  0c8h 
+                mov byte ptr [base_color], 30h
+
+                ret
+                endp
+
+;------------------------------------------------------------------------
+; установка символов рамки для режима 2
+; Принимает:  -
+; Возвращает: -
+;------------------------------------------------------------------------
+
+SetBaseSymSecondMode  proc
+                
+                mov byte ptr [left_up],    0c9h 
+                mov byte ptr [hor_line],   0cdh
+                mov byte ptr [right_up],   0bbh
+                mov byte ptr [ver_line],   0bah
+                mov byte ptr [right_down], 0bch
+                mov byte ptr [left_down],  0c8h
+                mov byte ptr [base_color], 0Fh 
+
+                ret
+                endp
+
 end Start
-
-
